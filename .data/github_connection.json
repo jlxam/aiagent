@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "connections": {
+    "d:\\antony\\react3": {
+      "repo": "jlxam/LocalAgent",
+      "branch": "main",
+      "transport": "ssh",
+      "private": true,
+      "login": null,
+      "connectedAt": "2026-10-08T17:30:12.238Z",
+      "lastPushAt": "2026-10-09T04:19:32.567Z",
+      "lastCommitSha": "e6578d7"
+    },
+    "d:\\antony\\react3\\agent28": {
+      "repo": "jlxam/LocalAgent",
+      "branch": "main",
+      "transport": "ssh",
+      "private": true,
+      "login": null,
+      "connectedAt": "2026-10-10T04:07:21.144Z",
+      "lastPushAt": null,
+      "lastCommitSha": null
+    }
+  }
+}

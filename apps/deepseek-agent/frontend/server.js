@@ -1,0 +1,9 @@
+import http from "node:http";
+
+const PORT = Number(process.env.PORT || 3001);
+const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:5001";
+const MODEL = "deepseek-r1:8k";
+const NAME = "DeepSeek Code Assistant";
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${NAME}</title><style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:32px}main{max-width:900px;margin:auto}textarea{width:100%;height:130px;background:#1d1d22;color:#fff;border:1px solid #444;border-radius:10px;padding:12px;box-sizing:border-box}button{margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#8ff0b5;cursor:pointer}pre{white-space:pre-wrap;background:#19191e;padding:16px;border-radius:10px;margin-top:18px}.muted{color:#aaa}</style></head><body><main><h1>${NAME}</h1><p class="muted">Model: ${MODEL}</p><textarea id="p" placeholder="Ask the local AI..."></textarea><br><button id="send">Send</button><pre id="out">Ready.</pre></main><script>const p=document.getElementById('p'),b=document.getElementById('send'),o=document.getElementById('out');async function run(){const prompt=p.value.trim();if(!prompt)return;o.textContent='Working...';b.disabled=true;try{const r=await fetch('http://127.0.0.1:5001/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});const d=await r.json();o.textContent=d.reply||d.error||'No response';}catch(e){o.textContent=e.message}finally{b.disabled=false}}b.onclick=run;p.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();run()}});</script></body></html>`;
+const server=http.createServer((req,res)=>{res.writeHead(200,{"Content-Type":"text/html; charset=utf-8"});res.end(html)});
+server.listen(PORT,"127.0.0.1",()=>console.log(`[App] DeepSeek Code Assistant frontend on ${PORT}`));

@@ -1,0 +1,38 @@
+{
+  "name": "Agent17",
+  "version": "1.0.0",
+  "description": "Local Qwen3/Qwen3-VL autonomous full-stack coding, visual QA, and preview agent",
+  "main": "server.js",
+  "type": "module",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "mysql2": "^3.24.5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node dev.js",
+    "test": "node scripts/check-media.mjs",
+    "test:e2e": "node scripts/check-agent-e2e.mjs",
+    "test:eval": "node scripts/check-eval-suite.mjs",
+    "test:eval:self": "node scripts/check-eval-suite.mjs --self-test",
+    "dev:server": "node server.js",
+    "dev:client": "vite --host 127.0.0.1 --port 5173",
+    "build": "tsc && vite build",
+    "test:config": "node scripts/check-agent-config.mjs",
+    "test:mobile": "node scripts/check-mobile-config.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2"
+  }
+}

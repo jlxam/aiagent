@@ -1,0 +1,23 @@
+{
+  "name": "Agent26 Local Roo Agent",
+  "enabled": true,
+  "provider": "ollama",
+  "baseUrl": "http://localhost:11434",
+  "mode": "autonomous",
+  "textModel": "qwen3:8b",
+  "visionModel": "qwen3-vl:8b",
+  "visionFallbackModel": "llama3.2-vision:latest",
+  "textFallbackModel": "llama3.2:latest",
+  "maxToolSteps": 8,
+  "verifyAfterWrite": true,
+  "refreshPreviewAfterWrite": true,
+  "allowShellCommands": true,
+  "requireWorkspaceBoundary": true,
+  "cloudFallback": false,
+  "mobileDevelopment": true,
+  "mobileStack": "react-native-expo-typescript",
+  "mobileTargets": ["android", "ios"],
+  "mobileGuideFile": "MOBILE_DEVELOPMENT.md",
+  "systemPromptFile": "agent-system-prompt.md",
+  "evaluationSuiteFile": "AI_CODING_AGENT_EVALUATION_SUITE.md"
+}
