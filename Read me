@@ -1,0 +1,5 @@
+# Agent25 setup and system design
+
+See `README.md` for the canonical setup/preconditions, local model requirements, architecture, AI system prompt configuration, media flow, SDLC protocol, and evaluation suite.
+
+The permanent agent prompt is `agent-system-prompt.md`. The five evaluation modules are in `AI_CODING_AGENT_EVALUATION_SUITE.md`.

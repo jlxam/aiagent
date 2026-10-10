@@ -1,0 +1,52 @@
+{
+  "applications": [
+    {
+      "id": 1,
+      "name": "DeepSeek Code Assistant",
+      "model_type": "deepseek",
+      "backend_path": "D:\\Antony\\React3\\Agent28\\apps\\deepseek-agent\\backend",
+      "frontend_path": "D:\\Antony\\React3\\Agent28\\apps\\deepseek-agent\\frontend",
+      "backend_port": 5001,
+      "frontend_port": 3001,
+      "backend_status": "STOPPED",
+      "frontend_status": "STOPPED",
+      "created_at": "2026-10-09T19:11:53.728Z"
+    },
+    {
+      "id": 2,
+      "name": "Gemma Chat Bot",
+      "model_type": "gemma",
+      "backend_path": "D:\\Antony\\React3\\Agent28\\apps\\gemma-agent\\backend",
+      "frontend_path": "D:\\Antony\\React3\\Agent28\\apps\\gemma-agent\\frontend",
+      "backend_port": 5002,
+      "frontend_port": 3004,
+      "backend_status": "STOPPED",
+      "frontend_status": "STOPPED",
+      "created_at": "2026-10-09T19:11:53.729Z"
+    },
+    {
+      "id": 3,
+      "name": "Llama Reasoning Agent",
+      "model_type": "llama",
+      "backend_path": "D:\\Antony\\React3\\Agent28\\apps\\llama-agent\\backend",
+      "frontend_path": "D:\\Antony\\React3\\Agent28\\apps\\llama-agent\\frontend",
+      "backend_port": 5003,
+      "frontend_port": 3003,
+      "backend_status": "STOPPED",
+      "frontend_status": "STOPPED",
+      "created_at": "2026-10-09T19:11:53.729Z"
+    },
+    {
+      "id": 4,
+      "name": "LocalAgent Studio",
+      "model_type": "llama",
+      "backend_path": "D:\\Antony\\React3\\Agent28",
+      "frontend_path": "D:\\Antony\\React3\\Agent28",
+      "backend_port": 3002,
+      "frontend_port": 5173,
+      "backend_status": "RUNNING",
+      "frontend_status": "RUNNING",
+      "created_at": "2026-10-09T19:11:53.729Z"
+    }
+  ]
+}
