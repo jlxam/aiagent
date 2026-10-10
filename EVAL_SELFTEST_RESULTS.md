@@ -1,27 +1,27 @@
 # Evaluation Suite Results
 
-Run: 2026-10-09T19:17:40.217Z
+Run: 2026-10-10T09:38:00.210Z
 
 ## Module 1 — Incomplete Code Completion (UserTable): PASS
-- workspace: .data\eval-m1-1791573446352
+- workspace: .data\eval-m1-1791624934994
 - typecheck: pass
 - [x] checks detect the unfixed defect (5 check(s) failed on the seed fixture as expected)
 
 ## Module 2 — Failing Code Diagnosis & Refactoring (Express route): PASS
-- workspace: .data\eval-m2-1791573458429
+- workspace: .data\eval-m2-1791625044033
 - [x] checks detect the unfixed defect (10 check(s) failed on the seed fixture as expected)
 
 ## Module 3 — New Code Architecture (Dark Mode Toggle with persistence): PASS
-- workspace: .data\eval-m3-1791573458579
+- workspace: .data\eval-m3-1791625047619
 - [x] checks detect the unfixed defect (1 check(s) failed on the seed fixture as expected)
 
 ## Module 4 — Bug Resolution via Screenshot (React hydration error): PASS
-- workspace: .data\eval-m4-1791573458586
+- workspace: .data\eval-m4-1791625047722
 - typecheck: pass
 - [x] checks detect the unfixed defect (4 check(s) failed on the seed fixture as expected)
 
 ## Module 5 — Dynamic Failure Analysis via Video (checkout wizard loop): PASS
-- workspace: .data\eval-m5-1791573459488
+- workspace: .data\eval-m5-1791625066734
 - typecheck: pass
 - [x] checks detect the unfixed defect (7 check(s) failed on the seed fixture as expected)
 

@@ -312,8 +312,13 @@ export default function AgentStudio() {
    *  every activeProject change (useCallback dep) — without this gate its
    *  session-workspace override would silently revert a fresh project
    *  selection back to the open session's folder, ping-ponging the backend
-   *  across tabs. The workspace is only applied when the SESSION changes. */
-  const lastRestoredSessionRef = useRef('');
+   *  across tabs. The workspace is only applied when the SESSION changes.
+   *  Seeded with the id the session state starts from, so the automatic load
+   *  on mount never re-applies an old session's workspace over the workspace
+   *  the user selected before a reload — only deliberate session switches do. */
+  const lastRestoredSessionRef = useRef((() => {
+    try { return localStorage.getItem('localagent.activeSessionId') || ''; } catch { return ''; }
+  })());
 
   const log = useCallback((text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -541,6 +546,9 @@ export default function AgentStudio() {
           if (prev) {
             const matched = data.projects.find((p: WorkspaceProject) => (p.id || p.name).toLowerCase() === (prev.id || prev.name).toLowerCase());
             if (matched) return matched;
+            // A custom workspace (outside the root) never appears in the scanned
+            // list, but it's still a valid selection the user made — keep it.
+            if (prev.path) return prev;
           }
           return null;
         });

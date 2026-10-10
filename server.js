@@ -47,19 +47,13 @@ let activePreviewWorkspace = WORKSPACE_DIR;
 let activeWorkspaceRoot = WORKSPACE_DIR;
 let livePreview = null; // { projectId, projectPath, port, child, output }
 
+// Resolve a workspace path. Any absolute folder is allowed — the Workspace
+// Switcher explicitly supports custom folders outside PROJECTS_ROOT (which now
+// only seeds the sidebar project list and the default example root). Security
+// is enforced per file, not per workspace: write endpoints still reject any
+// filePath that escapes the selected workspace.
 function resolveWorkspacePath(candidate) {
-    const target = path.resolve(String(candidate || WORKSPACE_DIR));
-    const normalize = value => {
-        const resolved = path.resolve(value);
-        return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
-    };
-    const normalizedTarget = normalize(target);
-    const normalizedRoot = normalize(PROJECTS_ROOT);
-    const rootPrefix = normalizedRoot.endsWith(path.sep) ? normalizedRoot : normalizedRoot + path.sep;
-    if (normalizedTarget !== normalizedRoot && !normalizedTarget.startsWith(rootPrefix)) {
-        throw new Error(`Workspace must be inside ${PROJECTS_ROOT}.`);
-    }
-    return target;
+    return path.resolve(String(candidate || WORKSPACE_DIR));
 }
 
 // Persistence (MySQL ai_studio_db, or the file-store fallback) + agent routes.
@@ -213,7 +207,8 @@ async function resolveSelectedProject(req) {
         if (found) return found;
     }
 
-    // Absolute path is only a fallback and is validated against PROJECTS_ROOT.
+    // Absolute path fallback — any existing folder outside the default list
+    // (a custom project directory) is accepted as a workspace candidate.
     if (requestedPath) {
         const candidate = resolveWorkspacePath(requestedPath);
         const stat = await fs.stat(candidate).catch(() => null);
@@ -297,9 +292,9 @@ app.get('/api/workspace', (req, res) => {
 
 // POST /api/workspace/switch { newPath, create? } — switch the active workspace
 // to an arbitrary folder by path so every app stays isolated in its own
-// directory. The path must stay inside PROJECTS_ROOT (the same isolation
-// boundary enforced by resolveWorkspacePath). With create:true a missing
-// folder is created first, so a brand-new app can be started from the UI.
+// directory. Any absolute folder is accepted (custom folders outside
+// PROJECTS_ROOT included). With create:true a missing folder is created first,
+// so a brand-new app can be started from the UI.
 app.post('/api/workspace/switch', async (req, res) => {
     try {
         const newPath = typeof req.body?.newPath === 'string' ? req.body.newPath.trim() : '';
@@ -418,10 +413,31 @@ function sendSelfPreview(res) {
 async function resolveProjectById(projectId) {
     const projects = await listWorkspaceProjects();
     const wanted = process.platform === 'win32' ? String(projectId || '').toLowerCase() : String(projectId || '');
-    return projects.find(p => {
+    const found = projects.find(p => {
         const key = process.platform === 'win32' ? String(p.id).toLowerCase() : String(p.id);
         return key === wanted;
-    }) || null;
+    });
+    if (found) return found;
+
+    // Custom workspace fallback: folders switched in from outside PROJECTS_ROOT
+    // are not part of the sidebar list. Accept (a) the basename of the
+    // currently active workspace, or (b) an absolute folder path as the id.
+    const raw = String(projectId || '');
+    const projectFromPath = (fullPath) => ({
+        id: path.basename(fullPath),
+        name: path.basename(fullPath),
+        path: fullPath,
+        relativePath: path.relative(PROJECTS_ROOT, fullPath)
+    });
+    const active = path.resolve(activeWorkspaceRoot || WORKSPACE_DIR);
+    const base = path.basename(active);
+    const matchesActive = process.platform === 'win32' ? base.toLowerCase() === raw.toLowerCase() : base === raw;
+    if (raw && matchesActive) return projectFromPath(active);
+    if (raw && path.isAbsolute(raw)) {
+        const stat = await fs.stat(raw).catch(() => null);
+        if (stat?.isDirectory()) return projectFromPath(path.resolve(raw));
+    }
+    return null;
 }
 
 async function findPreviewRoot(project) {

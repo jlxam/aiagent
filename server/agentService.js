@@ -1080,11 +1080,23 @@ function modelSupportsTools(model) {
   return !n.startsWith('gemma');
 }
 
+// Terms that mean "this is really work on the code, not a read-only look".
+// Shared by the inspection/question fast paths and the direct-write shortcut
+// so they can never disagree about which requests they may answer themselves.
+// Declared first: `const` is in the temporal dead zone above this point, and
+// these predicates are defined further down the file.
+const DIRECT_FILE_NEGATOR = /\b(fix|bug|bugs|debug|debugging|broken|breaks|error|errors|crash|crashing|fails|failed|failing|fail|issue|issues|repair|repairing|resolve|resolving|resolved|diagnose|diagnosing|not\s+work|doesn.t\s+work|does\s+not\s+work|won.t\s+work|stop(ped|ping)|hang|hangs|hang(ing)?|stuck|blank|missing|wrong|slow|explain|explain\s+why|why|how\s+does|refactor|refactoring|update|updating|modify|modifying|change|changing|delete|remove|test|tests|testing|review|reviewing|review\s+my|explain\s+my)\b/i;
+
 function shouldDirectQuestion(text) {
   const s = String(text || '').toLowerCase().trim();
-  return /^(what is|what's|tell me|which is|where is)\b/.test(s)
+  // Reads only: the question must OPEN the message. "what database, then
+  // update the schema" carries a follow-up edit, so it goes to the model loop.
+  // The anchor accepts any "what …" phrasing; an earlier version required a
+  // literal apostrophe ("what's"), so bare "what framework does this use"
+  // never matched and the fast path silently never fired for those.
+  return /^(what\b|tell me\b|which is\b|where is\b)/.test(s)
     && /\b(project name|project|framework|technology|tech stack|database|entry point|package name)\b/.test(s)
-    && !/\b(fix|change|update|modify|implement|create|add|remove|delete|build|test|debug|edit|refactor|improve|resolve)\b/.test(s);
+    && !DIRECT_FILE_NEGATOR.test(s);
 }
 
 function answerSimpleProjectQuestion(text, info) {
@@ -1105,11 +1117,19 @@ function answerSimpleProjectQuestion(text, info) {
   return makeFastProjectSummary(info);
 }
 
+// Read-only fast paths must never swallow an implementation request. This
+// shares DIRECT_FILE_NEGATOR (defined below) so the inspection/question
+// shortcuts and the direct-write shortcut agree on what counts as "this is
+// really work on the code" — a narrower list here silently drops edits.
 function shouldDirectInspect(text) {
   const s = String(text || '').toLowerCase();
   return /\b(inspect|analy[sz]e|analyse|structure|which files|what files|project overview|project structure)\b/.test(s)
     && /\b(project|react|typescript|node|mysql|folder|workspace|codebase)\b/.test(s)
-    && !/\b(create|add|change|modify|update|fix|implement|delete|remove|build|test|run)\b/.test(s);
+    && !DIRECT_FILE_NEGATOR.test(s)
+    // Any creation/imperative verb anywhere disqualifies the read-only path:
+    // "analyze the structure, then create a landing page" is implementation
+    // work and must reach the tool loop, not get a canned file summary.
+    && !/\b(add|implement|build|run|write|generate|make|create|scaffold|draft|produce|prepare|design|include|ensure)\b/.test(s);
 }
 
 function makeFastProjectSummary(info) {
@@ -1296,6 +1316,142 @@ function isSimpleStaticHomeTask(text) {
     && /\bhome\s*page\b/.test(s)
     && /\b(html|css)\b/.test(s)
     && /\b(js|javascript)\b/.test(s);
+}
+
+// A "direct file request" names a concrete artifact to produce and nothing
+// else: "create a landing page", "generate a README". Those need no planning
+// phase — there is nothing to discover or decide — so runAgentLoop writes the
+// file straight away instead of spending minutes of local-model time on an SDLC
+// plan. Deliberately conservative: the request must be dominated by a creation
+// verb and free of fix/debug/explain terms, otherwise the full model loop runs
+// (a misclassification writes the wrong file, which is worse than a slow plan).
+const DIRECT_FILE_VERB = /\b(create|generate|make|build|scaffold|write|draft|produce)\b/;
+const DIRECT_FILE_ARTIFACT = /\b(page|site|landing|homepage|home|html|css|style|styles|script|js|javascript|readme|component|template|form|button|hero|footer|navbar|nav|menu|table|list|card|layout|dashboard|portfolio|blog|coming\s*soon|tooltip|modal|slider|gallery|pricing|about|contact)\b/;
+function isDirectFileRequest(text) {
+  const s = String(text || '').trim().toLowerCase();
+  if (!s || s.length > 400) return false;        // long prompts are real planning tasks
+  if (!DIRECT_FILE_VERB.test(s)) return false;
+  // The artifact must lead the request. "create a landing page, then inspect
+  // the structure" qualifies; "inspect the project structure, then create a
+  // page" does not — that prelude means the user wants the real tool loop (so
+  // the files are based on what is actually there), not a canned template.
+  if (!/^\s*(create|generate|make|build|scaffold|write|draft|produce|prepare|design)\b[^.!?\n]{0,80}?\b(page|site|landing|homepage|html|css|style|styles|script|js|javascript|readme|component|template|form|button|hero|footer|navbar|nav|menu|table|list|card|layout|dashboard|portfolio|blog|coming\s*soon|tooltip|modal|slider|gallery|pricing|about|contact)\b/.test(s)) return false;
+  // "the create button is broken" / "fix the crashing create flow" name a
+  // creation verb but are repair work — let the model loop handle those.
+  return !DIRECT_FILE_NEGATOR.test(s);
+}
+
+// Maps a direct file request to a deterministic writer. Returns null when the
+// request names no artifact we can generate without a model, in which case the
+// caller falls through to the standard flow rather than guessing.
+function directFileTemplateFor(text) {
+  const s = String(text || '').toLowerCase();
+  if (/\breadme\b/.test(s)) return 'readme';
+  if (/\bhtml\b/.test(s) || /\bpage\b/.test(s) || /\bsites?\b/.test(s) || /\blanding\b/.test(s) || /\bhomepage\b/.test(s) || /\bhome\s*page\b/.test(s) || /\bhero\b/.test(s) || /\bportfolio\b/.test(s) || /\bblog\b/.test(s) || /\bpricing\b/.test(s) || /\babout\b/.test(s) || /\bcontact\b/.test(s) || /\bcoming\s*soon\b/.test(s) || /\bdashboard\b/.test(s)) return 'static_page';
+  if (/\bcss\b|\bstyles?\b/.test(s)) return 'stylesheet';
+  if (/\bcomponent\b/.test(s)) return 'component';
+  return null;
+}
+
+// Titles the generated page/README are personalized with, lifted from the
+// user's own words so "create a landing page for Acme" is not generic.
+function directFileTitle(text) {
+  const cleaned = String(text || '')
+    .replace(/\b(create|generate|make|build|scaffold|write|draft|produce)\b/gi, '')
+    .replace(/\b(a|an|the|for|that|with|please|simple|responsive|new|page|site|landing\s*page|readme|html|css|stylesheet|component)\b/gi, ' ')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned || cleaned.length < 2) return 'Project';
+  return cleaned.split(' ').slice(0, 6).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+// Deterministic writers for the direct path. Each returns the files it wrote,
+// mirroring createStaticHomePage's contract so the call site is identical.
+async function executeDirectFileWriter(text, workspace) {
+  const kind = directFileTemplateFor(text);
+  if (kind === 'readme') return createReadmeTemplate(text, workspace);
+  if (kind === 'static_page') return createStaticHomePage(workspace);   // already covers index/styles/script
+  if (kind === 'stylesheet') return createStylesheetTemplate(text, workspace);
+  if (kind === 'component') return createComponentTemplate(text, workspace);
+  return null;
+}
+
+async function createReadmeTemplate(text, workspace) {
+  const title = directFileTitle(text);
+  const body = [
+    `# ${title}`, '',
+    'A short overview of this project.', '',
+    '## Getting started', '',
+    '```sh',
+    '# install dependencies',
+    'npm install', '',
+    '# run the development server',
+    'npm run dev',
+    '```', '',
+    '## Project structure', '',
+    'Describe the main folders and what each one holds.', '',
+    '## Notes', '',
+    'Add usage, configuration, or deployment details here.', ''
+  ].join('\n');
+  return writeTemplateFiles(workspace, { 'README.md': body });
+}
+
+async function createStylesheetTemplate(text, workspace) {
+  const title = directFileTitle(text);
+  const css = [
+    `/* ${title} — base styles */`,
+    ':root {',
+    '  --bg: #0b1020;',
+    '  --surface: rgba(255,255,255,.045);',
+    '  --text: #f5f7fb;',
+    '  --muted: #b8c2d9;',
+    '  --accent: #7dd3fc;',
+    '  --radius: 12px;',
+    '  --gap: 18px;',
+    '}',
+    '',
+    '* { box-sizing: border-box; }',
+    'body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }',
+    '.container { max-width: 1050px; margin: 0 auto; padding: 24px; }',
+    '.card { padding: 24px; border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius); background: var(--surface); }',
+    '.button { display: inline-flex; align-items: center; border: 0; border-radius: var(--radius); padding: 12px 20px; font-weight: 700; cursor: pointer; background: var(--accent); color: #06111d; }',
+    '@media (max-width: 760px) { .container { padding: 16px; } }', ''
+  ].join('\n');
+  return writeTemplateFiles(workspace, { 'styles.css': css });
+}
+
+async function createComponentTemplate(text, workspace) {
+  const title = directFileTitle(text).replace(/\s+/g, '');
+  const name = /^[A-Za-z]/.test(title) ? title : `My${title}`;
+  const jsx = [
+    `import React from 'react';`, '',
+    `interface ${name}Props {`,
+    `  title?: string;`,
+    `}`, '',
+    `/** ${name} — generated from a direct file request. */`,
+    `export default function ${name}({ title = '${name}' }: ${name}Props) {`,
+    `  return (`,
+    `    <section className="card">`,
+    `      <h2>{title}</h2>`,
+    `      <p>Replace this content with your own.</p>`,
+    `    </section>`,
+    `  );`,
+    `}`, ''
+  ].join('\n');
+  return writeTemplateFiles(workspace, { [`${name}.tsx`]: jsx });
+}
+
+// Shared writer for the deterministic templates. Existing files are never
+// overwritten — the user keeps their work and gets told which file was missing.
+async function writeTemplateFiles(workspace, files) {
+  const written = [];
+  for (const [file, content] of Object.entries(files)) {
+    const full = safePath(workspace, file);
+    const exists = await fs.stat(full).then(() => true).catch(() => false);
+    if (!exists) { await fs.writeFile(full, content, 'utf8'); written.push(file); }
+  }
+  return { files: written, status: 'success', fallback: true };
 }
 
 async function createStaticHomePage(workspace) {
@@ -1548,6 +1704,27 @@ export async function runAgentLoop(sessionId, userMessage, model = DEFAULT_MODEL
     await db.insertMessage({ sessionId, taskId, role: 'assistant', content: reply });
     if (taskId) await db.updateTask(taskId, { status: 'done', completedAt: new Date().toISOString(), error: null });
     return { reply, toolExecuted: true, toolCall: { name: 'create_static_home_page', args: {} }, status: 'success', fallbackUsed: true, modelUsed: 'local-template', taskId };
+  }
+
+  // Direct file request: "create a landing page", "generate a README". These
+  // name a concrete artifact and nothing to plan around, so skip the planning
+  // phase entirely and invoke the file writer directly. Only deterministic
+  // templates run here — if we cannot name the artifact, fall through to the
+  // standard multi-step SDLC workflow rather than guess at the user's intent.
+  if (!attachmentList.length && isDirectFileRequest(userMessage)) {
+    const direct = await executeDirectFileWriter(userMessage, workspace).catch(() => null);
+    if (direct && direct.files?.length) {
+      const toolName = directFileTemplateFor(userMessage) === 'readme' ? 'create_readme' : 'create_static_home_page';
+      emitStep({ kind: 'write', label: 'Write' }, direct.files.join(', '), 'running');
+      emitStep({ kind: 'write', label: 'Write' }, direct.files.join(', '), 'done');
+      const reply = `Created ${direct.files.join(', ')} in the active workspace. Files that already existed were left unchanged.`;
+      await db.insertMessage({ sessionId, taskId, role: 'tool', content: JSON.stringify(direct), toolCallJson: JSON.stringify({ name: toolName, args: {} }) });
+      await db.insertMessage({ sessionId, taskId, role: 'assistant', content: reply });
+      if (taskId) await db.updateTask(taskId, { status: 'done', completedAt: new Date().toISOString(), error: null });
+      return { reply, toolExecuted: true, toolCall: { name: toolName, args: {} }, status: 'success', fallbackUsed: true, modelUsed: 'local-template', taskId };
+    }
+    // null / nothing written: no matching template (or the file already exists).
+    // Keep going through the standard flow so the model can still answer.
   }
 
   // Deterministic read-only inspection: do not waste CPU/model time for a task
@@ -1960,6 +2137,6 @@ export async function runAgentLoop(sessionId, userMessage, model = DEFAULT_MODEL
 
 // Media/timeout helpers exported for the regression checks in
 // scripts/check-media.mjs (run with: node scripts/check-media.mjs).
-export { parseTimeoutMs, sniffMediaKind, normalizeAttachmentKind, prepareImageFrames, extractVideoFrames, callOllamaChat, collectMessageAttachments, extractFilePathCandidates, isVisualReadOnlyRequest, sanitizeFilePath, ensureSandboxDir };
+export { parseTimeoutMs, sniffMediaKind, normalizeAttachmentKind, prepareImageFrames, extractVideoFrames, callOllamaChat, collectMessageAttachments, extractFilePathCandidates, isVisualReadOnlyRequest, sanitizeFilePath, ensureSandboxDir, isDirectFileRequest, directFileTemplateFor, shouldDirectInspect, shouldDirectQuestion };
 
 
